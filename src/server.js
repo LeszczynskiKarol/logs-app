@@ -98,12 +98,10 @@ function detectApp(file, host) {
 
 function extractHostShort(hostname) {
   if (!hostname) return "unknown";
-  // ip-172-31-36-197.eu-north-1.compute.internal → stojan
-  if (hostname.includes("172-31-36-197") || hostname.includes("16.171.6.205"))
-    return "stojan-stockholm";
-  if (hostname.includes("172-31-") && hostname.includes("eu-north"))
-    return "scraper-stockholm";
-  if (hostname.includes("eu-central")) return "frankfurt";
+  if (hostname.includes("172-31-36-197")) return "stojan";
+  if (hostname.includes("172-31-37-15")) return "scraper";
+  if (hostname.includes("172-31-21-124")) return "frankfurt-1";
+  if (hostname.includes("172-31-17-228")) return "frankfurt-2";
   return hostname.split(".")[0];
 }
 

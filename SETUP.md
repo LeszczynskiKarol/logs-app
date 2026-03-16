@@ -12,13 +12,13 @@
 
 # ============================================
 
-# W AWS Console → Route 53 → silniki-elektryczne.com.pl → Create Record:
+# W AWS Console → Route 53 → domena → Create Record:
 
 # Name: logs
 
 # Type: A
 
-# Value: 16.171.6.205
+# Value: IP DOMENY
 
 # TTL: 300
 
@@ -31,21 +31,21 @@
 # Na lokalu (Git Bash):
 
 cd /d/
-git clone <ten-projekt> stojan-logs
+git clone <ten-projekt> logs-app
 
 # Albo skopiuj pliki ręcznie na serwer:
 
-scp -r -i ~/.ssh/moja-aplikacja-key-pair.pem stojan-logs/ ec2-user@16.171.6.205:/home/ec2-user/stojan-logs/
+scp -r -i ~/.ssh/[KLUCZ].pem logs-app/ ec2-user@[IP]:/home/ec2-user/logs-app/
 
 # ============================================
 
-# KROK 3: Setup na Stojanie (SSH)
+# KROK 3: Setup na instancji EC2 (SSH)
 
 # ============================================
 
-ssh -i ~/.ssh/moja-aplikacja-key-pair.pem ec2-user@16.171.6.205
+ssh -i ~/.ssh/[KLUCZ].pem ec2-user@[IP]
 
-cd /home/ec2-user/stojan-logs
+cd /home/ec2-user/logs-app
 npm install
 
 # Zmień klucze! (edytuj .env albo ustaw w PM2)
@@ -80,13 +80,13 @@ pm2 save
 
 # ============================================
 
-sudo cp /home/ec2-user/stojan-logs/logs.silniki-elektryczne.com.pl.conf /etc/nginx/conf.d/
+sudo cp /home/ec2-user/logs-app/logs.[DOMENA].conf /etc/nginx/conf.d/
 sudo nginx -t
 sudo systemctl reload nginx
 
 # Test (HTTP):
 
-curl -s http://logs.silniki-elektryczne.com.pl/api/stats -u admin:TWOJE_HASLO
+curl -s http://logs.[DOMENA]/api/stats -u admin:TWOJE_HASLO
 
 # ============================================
 
@@ -96,12 +96,12 @@ curl -s http://logs.silniki-elektryczne.com.pl/api/stats -u admin:TWOJE_HASLO
 
 # Jeśli masz certbot:
 
-sudo certbot --nginx -d logs.silniki-elektryczne.com.pl
+sudo certbot --nginx -d logs.[DOMENA]
 
 # Jeśli nie masz certbot:
 
 sudo yum install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d logs.silniki-elektryczne.com.pl
+sudo certbot --nginx -d logs.[DOMENA]
 
 # ============================================
 
@@ -136,7 +136,7 @@ curl -X POST http://localhost:4100/ingest \
 
 # Sprawdź dashboard:
 
-# Otwórz: https://logs.silniki-elektryczne.com.pl
+# Otwórz: https://logs.[DOMENA]
 
 # Login: admin / TWOJE_HASLO
 

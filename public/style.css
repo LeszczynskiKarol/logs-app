@@ -1,0 +1,282 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+  background: #0a0a0f;
+  color: #e0e0e0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: #111118;
+  border-bottom: 1px solid #1e1e2e;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-right {
+  display: flex;
+  gap: 8px;
+}
+
+h1 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f0f0f0;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: #1a1a2e;
+  color: #8888aa;
+  border: 1px solid #2a2a3e;
+}
+
+.badge-error {
+  background: #2d1515;
+  color: #ff6b6b;
+  border-color: #4a2020;
+}
+
+.badge-muted {
+  background: #1a1a2e;
+  color: #666680;
+}
+
+.btn {
+  padding: 6px 14px;
+  border: 1px solid #2a2a3e;
+  background: #1a1a2e;
+  color: #c0c0d0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.btn:hover {
+  background: #252540;
+  border-color: #3a3a5e;
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+.btn-live {
+  background: #1a2e1a;
+  border-color: #2a4a2a;
+  color: #6bff6b;
+}
+
+.btn-live.active {
+  background: #2a4a2a;
+  border-color: #4a6a4a;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #0d0d14;
+  border-bottom: 1px solid #1e1e2e;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filters select,
+.filters input {
+  padding: 6px 10px;
+  background: #111118;
+  border: 1px solid #2a2a3e;
+  color: #c0c0d0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+.filters select:focus,
+.filters input:focus {
+  border-color: #3b82f6;
+}
+
+.filters input {
+  width: 200px;
+}
+
+#log-container {
+  overflow-x: auto;
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+th {
+  background: #111118;
+  color: #8888aa;
+  font-weight: 500;
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid #1e1e2e;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+td {
+  padding: 6px 12px;
+  border-bottom: 1px solid #1a1a2e;
+  vertical-align: top;
+}
+
+.col-ts {
+  min-width: 130px;
+  color: #666680;
+}
+.col-host {
+  min-width: 100px;
+}
+.col-app {
+  min-width: 100px;
+  color: #8888cc;
+}
+.col-level {
+  min-width: 55px;
+}
+.col-msg {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 60vw;
+}
+.col-msg pre {
+  margin: 0;
+  font-family: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+tr:hover {
+  background: #12121e;
+}
+
+/* Level colors */
+.level-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.level-error .level-tag {
+  background: #2d1515;
+  color: #ff6b6b;
+}
+.level-warn .level-tag {
+  background: #2d2515;
+  color: #ffbb6b;
+}
+.level-info .level-tag {
+  background: #15152d;
+  color: #6b8bff;
+}
+.level-debug .level-tag {
+  background: #1a1a1a;
+  color: #666;
+}
+
+tr.level-error {
+  background: #110808;
+}
+tr.level-error:hover {
+  background: #1a0e0e;
+}
+tr.level-warn {
+  background: #111008;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px;
+  border-top: 1px solid #1e1e2e;
+  background: #0d0d14;
+}
+
+#page-info {
+  color: #666680;
+  font-size: 12px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0f;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2a3e;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a5e;
+}
+
+@media (max-width: 768px) {
+  .filters {
+    flex-direction: column;
+  }
+  .filters input {
+    width: 100%;
+  }
+  .col-host,
+  .col-file {
+    display: none;
+  }
+}

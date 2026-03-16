@@ -1,0 +1,31 @@
+# build output
+dist/
+.output/
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs.db-wal
+logs.db-shm
+logs.db
+
+# environment variables
+.env
+.env.production
+
+# macOS-specific files
+.DS_Store
+
+# jetbrains setting folders
+.idea/
+
+# vscode setting folders
+.vscode/
+
+# astro
+.astro/

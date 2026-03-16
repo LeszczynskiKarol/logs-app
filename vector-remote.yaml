@@ -1,0 +1,49 @@
+# /etc/vector/vector.yaml — Remote instance template
+# Replace INSTANCE_NAME and adjust paths per instance
+#
+# Frankfurt 1 (3.68.187.152):  maturapolski, interpunkcja, copywriting24
+# Frankfurt 2 (3.67.113.111):  smart-edu, smart-copy
+# Stockholm Scraper (16.16.131.9): scraper (Python/Gunicorn)
+
+sources:
+  pm2_logs:
+    type: file
+    include:
+      - /home/ubuntu/.pm2/logs/*.log
+      # Zmień na /home/ec2-user/.pm2/logs/*.log jeśli Amazon Linux
+    exclude:
+      - /home/ubuntu/.pm2/logs/pm2-logrotate*.log
+
+  nginx_access:
+    type: file
+    include:
+      - /var/log/nginx/access.log
+
+  nginx_error:
+    type: file
+    include:
+      - /var/log/nginx/error.log
+
+  syslog:
+    type: file
+    include:
+      - /var/log/syslog
+      # Amazon Linux: /var/log/messages
+
+sinks:
+  stojan_logs:
+    type: http
+    inputs:
+      - pm2_logs
+      - nginx_access
+      - nginx_error
+      - syslog
+    uri: http://logs.silniki-elektryczne.com.pl/ingest
+    method: post
+    encoding:
+      codec: json
+    headers:
+      x-api-key: "zmien-ten-klucz-2026"
+    batch:
+      max_bytes: 1048576
+      timeout_secs: 10

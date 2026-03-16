@@ -66,7 +66,12 @@ const deleteOld = db.prepare(`
 // ============================================
 function detectLevel(message) {
   const lower = message.toLowerCase();
-  if (lower.includes("error") || lower.includes("err_") || lower.includes("fatal")) return "error";
+  if (
+    lower.includes("error") ||
+    lower.includes("err_") ||
+    lower.includes("fatal")
+  )
+    return "error";
   if (lower.includes("warn")) return "warn";
   if (lower.includes("debug")) return "debug";
   return "info";
@@ -76,11 +81,14 @@ function detectApp(file, host) {
   if (!file) return host || "unknown";
   if (file.includes("stojan-backend")) return "stojan-backend";
   if (file.includes("stojan-frontend")) return "stojan-frontend";
-  if (file.includes("smart-copy") || file.includes("smart-backend")) return "smart-copy";
+  if (file.includes("smart-copy") || file.includes("smart-backend"))
+    return "smart-copy";
   if (file.includes("smart-edu")) return "smart-edu";
-  if (file.includes("maturapolski") || file.includes("matura")) return "maturapolski";
+  if (file.includes("maturapolski") || file.includes("matura"))
+    return "maturapolski";
   if (file.includes("interpunkcja")) return "interpunkcja";
   if (file.includes("copywriting24")) return "copywriting24";
+  if (file.includes("web.stdout")) return "scraper";
   if (file.includes("nginx/access")) return "nginx-access";
   if (file.includes("nginx/error")) return "nginx-error";
   if (file.includes("/var/log/messages")) return "syslog";
@@ -91,8 +99,10 @@ function detectApp(file, host) {
 function extractHostShort(hostname) {
   if (!hostname) return "unknown";
   // ip-172-31-36-197.eu-north-1.compute.internal → stojan
-  if (hostname.includes("172-31-36-197") || hostname.includes("16.171.6.205")) return "stojan-stockholm";
-  if (hostname.includes("172-31-") && hostname.includes("eu-north")) return "scraper-stockholm";
+  if (hostname.includes("172-31-36-197") || hostname.includes("16.171.6.205"))
+    return "stojan-stockholm";
+  if (hostname.includes("172-31-") && hostname.includes("eu-north"))
+    return "scraper-stockholm";
   if (hostname.includes("eu-central")) return "frankfurt";
   return hostname.split(".")[0];
 }
@@ -233,17 +243,25 @@ app.get("/api/stats", async (request, reply) => {
   if (!checkBasicAuth(request, reply)) return;
 
   const total = countLogs.get().cnt;
-  const hosts = db.prepare("SELECT DISTINCT host FROM logs ORDER BY host").all();
+  const hosts = db
+    .prepare("SELECT DISTINCT host FROM logs ORDER BY host")
+    .all();
   const apps = db.prepare("SELECT DISTINCT app FROM logs ORDER BY app").all();
   const levels = db
-    .prepare("SELECT level, COUNT(*) as cnt FROM logs GROUP BY level ORDER BY cnt DESC")
+    .prepare(
+      "SELECT level, COUNT(*) as cnt FROM logs GROUP BY level ORDER BY cnt DESC",
+    )
     .all();
   const recent_errors = db
     .prepare(
-      "SELECT COUNT(*) as cnt FROM logs WHERE level = 'error' AND ts > datetime('now', '-1 hour')"
+      "SELECT COUNT(*) as cnt FROM logs WHERE level = 'error' AND ts > datetime('now', '-1 hour')",
     )
     .get();
-  const db_size_bytes = db.prepare("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()").get();
+  const db_size_bytes = db
+    .prepare(
+      "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()",
+    )
+    .get();
 
   return {
     total,
@@ -251,7 +269,8 @@ app.get("/api/stats", async (request, reply) => {
     apps: apps.map((a) => a.app),
     levels,
     errors_last_hour: recent_errors.cnt,
-    db_size_mb: Math.round((db_size_bytes?.size || 0) / 1024 / 1024 * 10) / 10,
+    db_size_mb:
+      Math.round(((db_size_bytes?.size || 0) / 1024 / 1024) * 10) / 10,
   };
 });
 
@@ -278,7 +297,9 @@ app.listen({ port: PORT, host: "0.0.0.0" }, (err) => {
     process.exit(1);
   }
   console.log(`📋 Log server running on http://0.0.0.0:${PORT}`);
-  console.log(`   Ingest: POST /ingest (x-api-key: ${INGEST_KEY.substring(0, 8)}...)`);
+  console.log(
+    `   Ingest: POST /ingest (x-api-key: ${INGEST_KEY.substring(0, 8)}...)`,
+  );
   console.log(`   Dashboard: http://0.0.0.0:${PORT}/`);
   console.log(`   DB: ${DB_PATH}`);
 });

@@ -1,211 +1,251 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stojan Logs</title>
-  <link rel="stylesheet" href="/style.css">
-</head>
-<body>
-  <header>
-    <div class="header-left">
-      <h1>📋 Logs</h1>
-      <span id="stats-badge" class="badge">loading...</span>
-      <span id="errors-badge" class="badge badge-error" style="display:none">0 errors/h</span>
-      <span id="db-badge" class="badge badge-muted">0 MB</span>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stojan Logs</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <div class="header-left">
+        <h1>📋 Logs</h1>
+        <span id="stats-badge" class="badge">loading...</span>
+        <span id="errors-badge" class="badge badge-error" style="display: none"
+          >0 errors/h</span
+        >
+        <span id="db-badge" class="badge badge-muted">0 MB</span>
+      </div>
+      <div class="header-right">
+        <button onclick="toggleLive()" id="live-btn" class="btn btn-live">
+          ▶ Live
+        </button>
+        <button onclick="fetchLogs()" class="btn">Refresh</button>
+      </div>
+    </header>
+
+    <div class="filters">
+      <select id="f-host" onchange="fetchLogs()">
+        <option value="">All hosts</option>
+      </select>
+      <select id="f-app" onchange="fetchLogs()">
+        <option value="">All apps</option>
+      </select>
+      <select id="f-level" onchange="fetchLogs()">
+        <option value="">All levels</option>
+        <option value="error">error</option>
+        <option value="warn">warn</option>
+        <option value="info">info</option>
+        <option value="debug">debug</option>
+      </select>
+      <input
+        type="text"
+        id="f-search"
+        placeholder="Search..."
+        onkeyup="if (event.key === 'Enter') fetchLogs();"
+      />
+      <button onclick="fetchLogs()" class="btn btn-sm">Search</button>
     </div>
-    <div class="header-right">
-      <button onclick="toggleLive()" id="live-btn" class="btn btn-live">▶ Live</button>
-      <button onclick="fetchLogs()" class="btn">Refresh</button>
+
+    <div id="log-container">
+      <table id="log-table">
+        <thead>
+          <tr>
+            <th class="col-ts">Time</th>
+            <th class="col-host">Host</th>
+            <th class="col-app">App</th>
+            <th class="col-level">Level</th>
+            <th class="col-msg">Message</th>
+          </tr>
+        </thead>
+        <tbody id="log-body"></tbody>
+      </table>
     </div>
-  </header>
 
-  <div class="filters">
-    <select id="f-host" onchange="fetchLogs()">
-      <option value="">All hosts</option>
-    </select>
-    <select id="f-app" onchange="fetchLogs()">
-      <option value="">All apps</option>
-    </select>
-    <select id="f-level" onchange="fetchLogs()">
-      <option value="">All levels</option>
-      <option value="error">error</option>
-      <option value="warn">warn</option>
-      <option value="info">info</option>
-      <option value="debug">debug</option>
-    </select>
-    <input type="text" id="f-search" placeholder="Search..." onkeyup="if(event.key==='Enter')fetchLogs()">
-    <button onclick="fetchLogs()" class="btn btn-sm">Search</button>
-  </div>
+    <div class="pagination">
+      <button onclick="prevPage()" class="btn btn-sm" id="btn-prev" disabled>
+        ← Prev
+      </button>
+      <span id="page-info">Page 1</span>
+      <button onclick="nextPage()" class="btn btn-sm" id="btn-next">
+        Next →
+      </button>
+    </div>
 
-  <div id="log-container">
-    <table id="log-table">
-      <thead>
-        <tr>
-          <th class="col-ts">Time</th>
-          <th class="col-host">Host</th>
-          <th class="col-app">App</th>
-          <th class="col-level">Level</th>
-          <th class="col-msg">Message</th>
-        </tr>
-      </thead>
-      <tbody id="log-body"></tbody>
-    </table>
-  </div>
+    <script>
+      const LIMIT = 200;
+      let offset = 0;
+      let liveInterval = null;
+      let lastId = 0;
 
-  <div class="pagination">
-    <button onclick="prevPage()" class="btn btn-sm" id="btn-prev" disabled>← Prev</button>
-    <span id="page-info">Page 1</span>
-    <button onclick="nextPage()" class="btn btn-sm" id="btn-next">Next →</button>
-  </div>
+      function getAuth() {
+        // Basic auth is handled by browser natively (401 → prompt)
+        return {};
+      }
 
-<script>
-const LIMIT = 200;
-let offset = 0;
-let liveInterval = null;
-let lastId = 0;
+      async function fetchStats() {
+        try {
+          const res = await fetch("/api/stats");
+          if (!res.ok) return;
+          const data = await res.json();
 
-function getAuth() {
-  // Basic auth is handled by browser natively (401 → prompt)
-  return {};
-}
+          document.getElementById("stats-badge").textContent =
+            `${data.total.toLocaleString()} logs`;
 
-async function fetchStats() {
-  try {
-    const res = await fetch('/api/stats');
-    if (!res.ok) return;
-    const data = await res.json();
+          const errBadge = document.getElementById("errors-badge");
+          if (data.errors_last_hour > 0) {
+            errBadge.style.display = "inline";
+            errBadge.textContent = `${data.errors_last_hour} errors/h`;
+          } else {
+            errBadge.style.display = "none";
+          }
 
-    document.getElementById('stats-badge').textContent = `${data.total.toLocaleString()} logs`;
+          document.getElementById("db-badge").textContent =
+            `${data.db_size_mb} MB`;
 
-    const errBadge = document.getElementById('errors-badge');
-    if (data.errors_last_hour > 0) {
-      errBadge.style.display = 'inline';
-      errBadge.textContent = `${data.errors_last_hour} errors/h`;
-    } else {
-      errBadge.style.display = 'none';
-    }
+          // Populate filter dropdowns
+          const hostSelect = document.getElementById("f-host");
+          const appSelect = document.getElementById("f-app");
 
-    document.getElementById('db-badge').textContent = `${data.db_size_mb} MB`;
+          const currentHost = hostSelect.value;
+          const currentApp = appSelect.value;
 
-    // Populate filter dropdowns
-    const hostSelect = document.getElementById('f-host');
-    const appSelect = document.getElementById('f-app');
+          hostSelect.innerHTML = '<option value="">All hosts</option>';
+          data.hosts.forEach((h) => {
+            hostSelect.innerHTML += `<option value="${h}" ${h === currentHost ? "selected" : ""}>${h}</option>`;
+          });
 
-    const currentHost = hostSelect.value;
-    const currentApp = appSelect.value;
+          appSelect.innerHTML = '<option value="">All apps</option>';
+          data.apps.forEach((a) => {
+            appSelect.innerHTML += `<option value="${a}" ${a === currentApp ? "selected" : ""}>${a}</option>`;
+          });
+        } catch (e) {
+          console.error("Stats error:", e);
+        }
+      }
 
-    hostSelect.innerHTML = '<option value="">All hosts</option>';
-    data.hosts.forEach(h => {
-      hostSelect.innerHTML += `<option value="${h}" ${h === currentHost ? 'selected' : ''}>${h}</option>`;
-    });
+      async function fetchLogs() {
+        const host = document.getElementById("f-host").value;
+        const app = document.getElementById("f-app").value;
+        const level = document.getElementById("f-level").value;
+        const search = document.getElementById("f-search").value;
 
-    appSelect.innerHTML = '<option value="">All apps</option>';
-    data.apps.forEach(a => {
-      appSelect.innerHTML += `<option value="${a}" ${a === currentApp ? 'selected' : ''}>${a}</option>`;
-    });
-  } catch (e) {
-    console.error('Stats error:', e);
-  }
-}
+        const params = new URLSearchParams();
+        params.set("limit", LIMIT);
+        params.set("offset", offset);
+        if (host) params.set("host", host);
+        if (app) params.set("app", app);
+        if (level) params.set("level", level);
+        if (search) params.set("search", search);
 
-async function fetchLogs() {
-  const host = document.getElementById('f-host').value;
-  const app = document.getElementById('f-app').value;
-  const level = document.getElementById('f-level').value;
-  const search = document.getElementById('f-search').value;
+        try {
+          const res = await fetch(`/api/logs?${params}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          renderLogs(data.logs);
 
-  const params = new URLSearchParams();
-  params.set('limit', LIMIT);
-  params.set('offset', offset);
-  if (host) params.set('host', host);
-  if (app) params.set('app', app);
-  if (level) params.set('level', level);
-  if (search) params.set('search', search);
+          document.getElementById("btn-prev").disabled = offset === 0;
+          document.getElementById("btn-next").disabled =
+            data.logs.length < LIMIT;
+          document.getElementById("page-info").textContent =
+            `Page ${Math.floor(offset / LIMIT) + 1}`;
 
-  try {
-    const res = await fetch(`/api/logs?${params}`);
-    if (!res.ok) return;
-    const data = await res.json();
-    renderLogs(data.logs);
+          if (data.logs.length > 0) {
+            lastId = data.logs[0].id;
+          }
+        } catch (e) {
+          console.error("Fetch error:", e);
+        }
+      }
 
-    document.getElementById('btn-prev').disabled = offset === 0;
-    document.getElementById('btn-next').disabled = data.logs.length < LIMIT;
-    document.getElementById('page-info').textContent = `Page ${Math.floor(offset / LIMIT) + 1}`;
-
-    if (data.logs.length > 0) {
-      lastId = data.logs[0].id;
-    }
-  } catch (e) {
-    console.error('Fetch error:', e);
-  }
-}
-
-function renderLogs(logs) {
-  const tbody = document.getElementById('log-body');
-  tbody.innerHTML = logs.map(log => {
-    const levelClass = `level-${log.level}`;
-    const ts = formatTime(log.ts);
-    const msg = escapeHtml(log.message).substring(0, 500);
-    return `<tr class="${levelClass}">
+      function renderLogs(logs) {
+        const tbody = document.getElementById("log-body");
+        tbody.innerHTML = logs
+          .map((log) => {
+            const levelClass = `level-${log.level}`;
+            const ts = formatTime(log.ts);
+            const short = escapeHtml(log.message).substring(0, 200);
+            const full = escapeHtml(log.message);
+            const needsExpand = log.message.length > 200;
+            return `<tr class="${levelClass} log-row" onclick="toggleRow(this)">
       <td class="col-ts" title="${log.ts}">${ts}</td>
       <td class="col-host">${log.host}</td>
       <td class="col-app">${log.app}</td>
       <td class="col-level"><span class="level-tag ${levelClass}">${log.level}</span></td>
-      <td class="col-msg"><pre>${msg}</pre></td>
+      <td class="col-msg">
+        <pre class="msg-short">${short}${needsExpand ? ' <span class="expand-hint">▶ click</span>' : ""}</pre>
+        <pre class="msg-full" style="display:none">${full}</pre>
+      </td>
     </tr>`;
-  }).join('');
-}
+          })
+          .join("");
+      }
 
-function formatTime(ts) {
-  try {
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return ts.substring(0, 19);
-    return d.toLocaleString('pl-PL', {
-      month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit'
-    });
-  } catch {
-    return ts.substring(0, 19);
-  }
-}
+      function toggleRow(tr) {
+        const short = tr.querySelector(".msg-short");
+        const full = tr.querySelector(".msg-full");
+        if (!full) return;
+        const isExpanded = full.style.display !== "none";
+        short.style.display = isExpanded ? "block" : "none";
+        full.style.display = isExpanded ? "none" : "block";
+        tr.classList.toggle("expanded", !isExpanded);
+      }
 
-function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+      function formatTime(ts) {
+        try {
+          const d = new Date(ts);
+          if (isNaN(d.getTime())) return ts.substring(0, 19);
+          return d.toLocaleString("pl-PL", {
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          });
+        } catch {
+          return ts.substring(0, 19);
+        }
+      }
 
-function nextPage() {
-  offset += LIMIT;
-  fetchLogs();
-}
+      function escapeHtml(str) {
+        return str
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
 
-function prevPage() {
-  offset = Math.max(0, offset - LIMIT);
-  fetchLogs();
-}
+      function nextPage() {
+        offset += LIMIT;
+        fetchLogs();
+      }
 
-function toggleLive() {
-  const btn = document.getElementById('live-btn');
-  if (liveInterval) {
-    clearInterval(liveInterval);
-    liveInterval = null;
-    btn.textContent = '▶ Live';
-    btn.classList.remove('active');
-  } else {
-    liveInterval = setInterval(() => {
-      offset = 0;
-      fetchLogs();
+      function prevPage() {
+        offset = Math.max(0, offset - LIMIT);
+        fetchLogs();
+      }
+
+      function toggleLive() {
+        const btn = document.getElementById("live-btn");
+        if (liveInterval) {
+          clearInterval(liveInterval);
+          liveInterval = null;
+          btn.textContent = "▶ Live";
+          btn.classList.remove("active");
+        } else {
+          liveInterval = setInterval(() => {
+            offset = 0;
+            fetchLogs();
+            fetchStats();
+          }, 3000);
+          btn.textContent = "⏸ Live";
+          btn.classList.add("active");
+        }
+      }
+
+      // Init
       fetchStats();
-    }, 3000);
-    btn.textContent = '⏸ Live';
-    btn.classList.add('active');
-  }
-}
-
-// Init
-fetchStats();
-fetchLogs();
-setInterval(fetchStats, 30000);
-</script>
-</body>
+      fetchLogs();
+      setInterval(fetchStats, 30000);
+    </script>
+  </body>
 </html>

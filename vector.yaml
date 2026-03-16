@@ -28,7 +28,6 @@ sinks:
     type: http
     inputs:
       - pm2_logs
-      - nginx_access
       - nginx_error
       - syslog
     uri: http://127.0.0.1:4100/ingest
@@ -36,7 +35,7 @@ sinks:
     encoding:
       codec: json
     headers:
-      x-api-key: "zmien-ten-klucz-2026"
+      x-api-key: "Basketball321**"
     batch:
       max_bytes: 1048576
       timeout_secs: 5

@@ -280,3 +280,28 @@ tr.level-warn {
     display: none;
   }
 }
+
+.log-row {
+  cursor: pointer;
+}
+.log-row:active {
+  opacity: 0.8;
+}
+.log-row.expanded {
+  background: #151522;
+}
+.log-row.expanded td {
+  border-bottom: 1px solid #2a2a4e;
+}
+.expand-hint {
+  color: #444466;
+  font-size: 10px;
+}
+.msg-full {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+  color: #c8c8e0;
+  line-height: 1.6;
+}

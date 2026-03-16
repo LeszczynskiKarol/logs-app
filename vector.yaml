@@ -6,6 +6,7 @@ sources:
       - /home/ec2-user/.pm2/logs/*.log
     exclude:
       - /home/ec2-user/.pm2/logs/pm2-logrotate*.log
+      - /home/ec2-user/.pm2/logs/stojan-logs*.log
 
   nginx_access:
     type: file

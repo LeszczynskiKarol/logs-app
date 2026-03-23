@@ -1,4 +1,3 @@
-// src/server.js
 import Fastify from "fastify";
 import Database from "better-sqlite3";
 import { readFileSync } from "fs";
@@ -108,10 +107,60 @@ function extractHostShort(hostname) {
 function cleanup() {
   const { cnt } = countLogs.get();
   if (cnt > MAX_ROWS) {
-    const toDelete = cnt - MAX_ROWS + 50_000; // delete 50k extra
+    const toDelete = cnt - MAX_ROWS + 50_000;
     deleteOld.run(toDelete);
     console.log(`🧹 Cleaned ${toDelete} old logs (was ${cnt})`);
   }
+}
+
+// ============================================
+// LOG GROUPING — merge multi-line entries
+// ============================================
+// Rows come in DESC order (newest first).
+// Consecutive rows with same host+app+file and timestamps within
+// GROUP_WINDOW_MS are merged into one entry. Messages are
+// reassembled in chronological (ASC) order so stack traces read
+// correctly top-to-bottom.
+const GROUP_WINDOW_MS = 2000;
+
+function groupLogs(rows) {
+  if (rows.length === 0) return rows;
+
+  const grouped = [];
+  // Accumulate lines for the current group (in DESC order as they arrive)
+  let cur = { ...rows[0], _lines: [rows[0].message] };
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const tsCur = new Date(cur.ts).getTime();
+    const tsRow = new Date(row.ts).getTime();
+    const timeDiff = Math.abs(tsCur - tsRow);
+
+    const sameGroup =
+      row.host === cur.host &&
+      row.app === cur.app &&
+      timeDiff <= GROUP_WINDOW_MS;
+
+    if (sameGroup) {
+      // Collect line; promote level if we see an error/warn
+      cur._lines.push(row.message);
+      if (row.level === "error") cur.level = "error";
+      else if (row.level === "warn" && cur.level !== "error")
+        cur.level = "warn";
+    } else {
+      // Flush current group — reverse so oldest line is first (chronological)
+      cur.message = cur._lines.reverse().join("\n");
+      delete cur._lines;
+      grouped.push(cur);
+      cur = { ...row, _lines: [row.message] };
+    }
+  }
+  // Flush last group
+  cur.message = cur._lines.reverse().join("\n");
+  delete cur._lines;
+  grouped.push(cur);
+
+  return grouped;
 }
 
 // ============================================
@@ -122,7 +171,7 @@ const app = Fastify({ bodyLimit: 10_485_760 }); // 10MB
 // --- Basic auth helper ---
 function checkBasicAuth(request, reply) {
   const auth = request.headers.authorization;
-  if (!auth || !auth.startsWith("Basic ")) {
+  if (!auth || !startsWith(auth, "Basic ")) {
     reply.header("WWW-Authenticate", 'Basic realm="Logs"');
     reply.code(401).send("Unauthorized");
     return false;
@@ -137,11 +186,14 @@ function checkBasicAuth(request, reply) {
   return true;
 }
 
+function startsWith(str, prefix) {
+  return str.slice(0, prefix.length) === prefix;
+}
+
 // ============================================
 // INGEST ENDPOINT — Vector sends logs here
 // ============================================
 app.post("/ingest", async (request, reply) => {
-  // Check API key
   const key =
     request.headers["x-api-key"] ||
     request.headers["authorization"]?.replace("Bearer ", "");
@@ -153,7 +205,6 @@ app.post("/ingest", async (request, reply) => {
   const body = request.body;
   const entries = [];
 
-  // Vector sends single object or array
   const items = Array.isArray(body) ? body : [body];
 
   for (const item of items) {
@@ -163,7 +214,6 @@ app.post("/ingest", async (request, reply) => {
     const app = detectApp(file, host);
     const level = item.level || item.severity || detectLevel(message);
     const ts = item.timestamp || item.ts || item.dt || new Date().toISOString();
-    // Skip nginx buffer warnings (not real errors)
     if (message.includes("buffered to a temporary file")) continue;
     entries.push({
       ts: typeof ts === "string" ? ts : new Date(ts).toISOString(),
@@ -171,7 +221,7 @@ app.post("/ingest", async (request, reply) => {
       app,
       level,
       file,
-      message: message.substring(0, 10000), // truncate
+      message: message.substring(0, 10000),
       raw: JSON.stringify(item).substring(0, 20000),
     });
   }
@@ -180,8 +230,7 @@ app.post("/ingest", async (request, reply) => {
     insertMany(entries);
   }
 
-  // Periodic cleanup
-  if (Math.random() < 0.01) cleanup(); // 1% chance per request
+  if (Math.random() < 0.01) cleanup();
 
   return { ok: true, count: entries.length };
 });
@@ -202,6 +251,11 @@ app.get("/api/logs", async (request, reply) => {
     from,
     to,
   } = request.query;
+
+  // Fetch more rows than requested so grouping still yields enough results.
+  // After grouping N raw rows might collapse to far fewer entries.
+  const rawLimit = Number(limit) * 5;
+  const rawOffset = Number(offset);
 
   let sql = "SELECT id, ts, host, app, level, message FROM logs WHERE 1=1";
   const params = [];
@@ -232,10 +286,15 @@ app.get("/api/logs", async (request, reply) => {
   }
 
   sql += " ORDER BY ts DESC LIMIT ? OFFSET ?";
-  params.push(Number(limit), Number(offset));
+  params.push(rawLimit, rawOffset);
 
   const rows = db.prepare(sql).all(...params);
-  return { logs: rows, count: rows.length };
+
+  // Group multi-line logs, then trim to requested limit
+  const grouped = groupLogs(rows);
+  const trimmed = grouped.slice(0, Number(limit));
+
+  return { logs: trimmed, count: trimmed.length };
 });
 
 app.get("/api/stats", async (request, reply) => {

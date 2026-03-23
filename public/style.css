@@ -305,3 +305,20 @@ tr.level-warn {
   color: #c8c8e0;
   line-height: 1.6;
 }
+
+/* Multi-line badge */
+.lines-badge {
+  display: inline-block;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #1a1a2e;
+  color: #6668aa;
+  margin-left: 4px;
+  vertical-align: middle;
+  font-weight: 400;
+}
+
+tr.multi .expand-hint {
+  color: #5566aa;
+}

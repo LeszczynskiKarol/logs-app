@@ -79,7 +79,6 @@
       let lastId = 0;
 
       function getAuth() {
-        // Basic auth is handled by browser natively (401 → prompt)
         return {};
       }
 
@@ -103,10 +102,8 @@
           document.getElementById("db-badge").textContent =
             `${data.db_size_mb} MB`;
 
-          // Populate filter dropdowns
           const hostSelect = document.getElementById("f-host");
           const appSelect = document.getElementById("f-app");
-
           const currentHost = hostSelect.value;
           const currentApp = appSelect.value;
 
@@ -158,22 +155,46 @@
         }
       }
 
+      /** Extract first non-empty, meaningful line as preview */
+      function firstLine(msg) {
+        const lines = msg.split("\n");
+        for (const line of lines) {
+          const trimmed = line.trim();
+          // Skip empty lines and lines that are just braces/brackets
+          if (trimmed && !/^[{}\[\],;]+$/.test(trimmed)) {
+            return trimmed;
+          }
+        }
+        return lines[0] || "";
+      }
+
       function renderLogs(logs) {
         const tbody = document.getElementById("log-body");
         tbody.innerHTML = logs
           .map((log) => {
             const levelClass = `level-${log.level}`;
             const ts = formatTime(log.ts);
-            const short = escapeHtml(log.message).substring(0, 200);
+            const lineCount = log.message.split("\n").length;
+            const preview = escapeHtml(firstLine(log.message)).substring(
+              0,
+              250,
+            );
             const full = escapeHtml(log.message);
-            const needsExpand = log.message.length > 200;
-            return `<tr class="${levelClass} log-row" onclick="toggleRow(this)">
+            const isMulti = lineCount > 1;
+            const badge = isMulti
+              ? ` <span class="lines-badge">${lineCount} lines</span>`
+              : "";
+            const expandHint = isMulti
+              ? ' <span class="expand-hint">▶ expand</span>'
+              : "";
+
+            return `<tr class="${levelClass} log-row${isMulti ? " multi" : ""}" onclick="toggleRow(this)">
       <td class="col-ts" title="${log.ts}">${ts}</td>
       <td class="col-host">${log.host}</td>
       <td class="col-app">${log.app}</td>
-      <td class="col-level"><span class="level-tag ${levelClass}">${log.level}</span></td>
+      <td class="col-level"><span class="level-tag ${levelClass}">${log.level}</span>${badge}</td>
       <td class="col-msg">
-        <pre class="msg-short">${short}${needsExpand ? ' <span class="expand-hint">▶ click</span>' : ""}</pre>
+        <pre class="msg-short">${preview}${expandHint}</pre>
         <pre class="msg-full" style="display:none">${full}</pre>
       </td>
     </tr>`;

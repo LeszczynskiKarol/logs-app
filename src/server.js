@@ -78,28 +78,46 @@ function detectLevel(message) {
 
 function detectApp(file, host) {
   if (!file) return host || "unknown";
-  if (file.includes("seo-panel")) return "seo-panel";
+  // Stojan instance
   if (file.includes("stojan-backend")) return "stojan-backend";
   if (file.includes("stojan-frontend")) return "stojan-frontend";
-  if (file.includes("smart-copy") || file.includes("smart-backend"))
+  if (file.includes("stojan-logs")) return "stojan-logs";
+  // Frankfurt-2: smart-copy, smart-edu, seo-panel
+  if (file.includes("seo-panel-error")) return "seo-panel";
+  if (file.includes("seo-panel-out")) return "seo-panel";
+  if (file.includes("seo-panel")) return "seo-panel";
+  if (file.includes("smart-backend") || file.includes("smart-copy"))
     return "smart-copy";
   if (file.includes("smart-edu")) return "smart-edu";
+  // Frankfurt-1: maturapolski, interpunkcja, copywriting24
   if (file.includes("maturapolski") || file.includes("matura"))
     return "maturapolski";
   if (file.includes("interpunkcja")) return "interpunkcja";
   if (file.includes("copywriting24")) return "copywriting24";
-  if (file.includes("web.stdout")) return "scraper";
+  // Scraper
+  if (file.includes("web.stdout") || file.includes("web.stderr"))
+    return "scraper";
+  // System logs
   if (file.includes("/var/log/messages")) return "syslog";
   if (file.includes("/var/log/secure")) return "syslog-secure";
-  return file.split("/").pop()?.replace(".log", "") || "unknown";
+  return (
+    file
+      .split("/")
+      .pop()
+      ?.replace(".log", "")
+      .replace("-out", "")
+      .replace("-error", "") || "unknown"
+  );
 }
 
 function extractHostShort(hostname) {
   if (!hostname) return "unknown";
-  if (hostname.includes("172-31-36-197")) return "stojan";
-  if (hostname.includes("172-31-37-15")) return "scraper";
-  if (hostname.includes("172-31-21-124")) return "frankfurt-1";
-  if (hostname.includes("172-31-17-228")) return "seo-panel";
+  if (hostname.includes("172-31-36-197")) return "Stojan (Stockholm)";
+  if (hostname.includes("172-31-37-15")) return "Scraper (Stockholm)";
+  if (hostname.includes("172-31-21-124"))
+    return "Matura+Inter+Copy (Frankfurt)";
+  if (hostname.includes("172-31-17-228"))
+    return "SmartCopy+Edu+SEO (Frankfurt)";
   return hostname.split(".")[0];
 }
 

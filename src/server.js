@@ -78,6 +78,7 @@ function detectLevel(message) {
 
 function detectApp(file, host) {
   if (!file) return host || "unknown";
+  if (file.includes("seo-panel")) return "seo-panel";
   if (file.includes("stojan-backend")) return "stojan-backend";
   if (file.includes("stojan-frontend")) return "stojan-frontend";
   if (file.includes("smart-copy") || file.includes("smart-backend"))
@@ -100,7 +101,7 @@ function extractHostShort(hostname) {
   if (hostname.includes("172-31-36-197")) return "stojan";
   if (hostname.includes("172-31-37-15")) return "scraper";
   if (hostname.includes("172-31-21-124")) return "frankfurt-1";
-  if (hostname.includes("172-31-17-228")) return "frankfurt-2";
+  if (hostname.includes("172-31-17-228")) return "seo-panel";
   return hostname.split(".")[0];
 }
 

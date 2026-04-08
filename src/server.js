@@ -214,6 +214,7 @@ app.post("/ingest", async (request, reply) => {
     const level = item.level || item.severity || detectLevel(message);
     const ts = item.timestamp || item.ts || item.dt || new Date().toISOString();
     if (message.includes("buffered to a temporary file")) continue;
+    if (file.includes("nginx/error") || file.includes("nginx/access")) continue;
     entries.push({
       ts: typeof ts === "string" ? ts : new Date(ts).toISOString(),
       host,

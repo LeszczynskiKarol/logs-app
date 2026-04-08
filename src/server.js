@@ -89,8 +89,6 @@ function detectApp(file, host) {
   if (file.includes("interpunkcja")) return "interpunkcja";
   if (file.includes("copywriting24")) return "copywriting24";
   if (file.includes("web.stdout")) return "scraper";
-  if (file.includes("nginx/access")) return "nginx-access";
-  if (file.includes("nginx/error")) return "nginx-error";
   if (file.includes("/var/log/messages")) return "syslog";
   if (file.includes("/var/log/secure")) return "syslog-secure";
   return file.split("/").pop()?.replace(".log", "") || "unknown";

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Stojan Logs</title>
+    <title>Logs</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
@@ -20,18 +20,18 @@
         <button onclick="toggleLive()" id="live-btn" class="btn btn-live">
           ▶ Live
         </button>
-        <button onclick="fetchLogs()" class="btn">Refresh</button>
+        <button onclick="resetAndFetch()" class="btn">Refresh</button>
       </div>
     </header>
 
     <div class="filters">
-      <select id="f-host" onchange="fetchLogs()">
+      <select id="f-host" onchange="resetAndFetch()">
         <option value="">All hosts</option>
       </select>
-      <select id="f-app" onchange="fetchLogs()">
+      <select id="f-app" onchange="resetAndFetch()">
         <option value="">All apps</option>
       </select>
-      <select id="f-level" onchange="fetchLogs()">
+      <select id="f-level" onchange="resetAndFetch()">
         <option value="">All levels</option>
         <option value="error">error</option>
         <option value="warn">warn</option>
@@ -42,9 +42,9 @@
         type="text"
         id="f-search"
         placeholder="Search..."
-        onkeyup="if (event.key === 'Enter') fetchLogs();"
+        onkeyup="if (event.key === 'Enter') resetAndFetch();"
       />
-      <button onclick="fetchLogs()" class="btn btn-sm">Search</button>
+      <button onclick="resetAndFetch()" class="btn btn-sm">Search</button>
     </div>
 
     <div id="log-container">
@@ -60,23 +60,53 @@
         </thead>
         <tbody id="log-body"></tbody>
       </table>
-    </div>
-
-    <div class="pagination">
-      <button onclick="prevPage()" class="btn btn-sm" id="btn-prev" disabled>
-        ← Prev
-      </button>
-      <span id="page-info">Page 1</span>
-      <button onclick="nextPage()" class="btn btn-sm" id="btn-next">
-        Next →
-      </button>
+      <div id="scroll-sentinel"></div>
+      <div
+        id="loading-indicator"
+        style="display: none; text-align: center; padding: 16px; color: #666680"
+      >
+        Loading...
+      </div>
+      <div
+        id="end-indicator"
+        style="
+          display: none;
+          text-align: center;
+          padding: 16px;
+          color: #444466;
+          font-size: 11px;
+        "
+      >
+        — End of logs —
+      </div>
     </div>
 
     <script>
-      const LIMIT = 200;
+      const BATCH = 30;
       let offset = 0;
+      let loading = false;
+      let hasMore = true;
       let liveInterval = null;
-      let lastId = 0;
+
+      // Infinite scroll via IntersectionObserver
+      const sentinel = document.getElementById("scroll-sentinel");
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting && !loading && hasMore) {
+            fetchLogs();
+          }
+        },
+        { root: document.getElementById("log-container"), rootMargin: "200px" },
+      );
+      observer.observe(sentinel);
+
+      function resetAndFetch() {
+        offset = 0;
+        hasMore = true;
+        document.getElementById("log-body").innerHTML = "";
+        document.getElementById("end-indicator").style.display = "none";
+        fetchLogs();
+      }
 
       function getAuth() {
         return {};
@@ -122,13 +152,17 @@
       }
 
       async function fetchLogs() {
+        if (loading || !hasMore) return;
+        loading = true;
+        document.getElementById("loading-indicator").style.display = "block";
+
         const host = document.getElementById("f-host").value;
         const app = document.getElementById("f-app").value;
         const level = document.getElementById("f-level").value;
         const search = document.getElementById("f-search").value;
 
         const params = new URLSearchParams();
-        params.set("limit", LIMIT);
+        params.set("limit", BATCH);
         params.set("offset", offset);
         if (host) params.set("host", host);
         if (app) params.set("app", app);
@@ -139,67 +173,72 @@
           const res = await fetch(`/api/logs?${params}`);
           if (!res.ok) return;
           const data = await res.json();
-          renderLogs(data.logs);
 
-          document.getElementById("btn-prev").disabled = offset === 0;
-          document.getElementById("btn-next").disabled =
-            data.logs.length < LIMIT;
-          document.getElementById("page-info").textContent =
-            `Page ${Math.floor(offset / LIMIT) + 1}`;
+          appendLogs(data.logs);
+          offset += BATCH;
 
-          if (data.logs.length > 0) {
-            lastId = data.logs[0].id;
+          if (data.logs.length < BATCH) {
+            hasMore = false;
+            document.getElementById("end-indicator").style.display = "block";
           }
         } catch (e) {
           console.error("Fetch error:", e);
+        } finally {
+          loading = false;
+          document.getElementById("loading-indicator").style.display = "none";
         }
       }
 
-      /** Extract first non-empty, meaningful line as preview */
       function firstLine(msg) {
         const lines = msg.split("\n");
         for (const line of lines) {
           const trimmed = line.trim();
-          // Skip empty lines and lines that are just braces/brackets
-          if (trimmed && !/^[{}\[\],;]+$/.test(trimmed)) {
-            return trimmed;
-          }
+          if (trimmed && !/^[{}\[\],;]+$/.test(trimmed)) return trimmed;
         }
         return lines[0] || "";
       }
 
-      function renderLogs(logs) {
+      function appendLogs(logs) {
         const tbody = document.getElementById("log-body");
-        tbody.innerHTML = logs
-          .map((log) => {
-            const levelClass = `level-${log.level}`;
-            const ts = formatTime(log.ts);
-            const lineCount = log.message.split("\n").length;
-            const preview = escapeHtml(firstLine(log.message)).substring(
-              0,
-              250,
-            );
-            const full = escapeHtml(log.message);
-            const isMulti = lineCount > 1;
-            const badge = isMulti
-              ? ` <span class="lines-badge">${lineCount} lines</span>`
-              : "";
-            const expandHint = isMulti
-              ? ' <span class="expand-hint">▶ expand</span>'
-              : "";
+        const fragment = document.createDocumentFragment();
 
-            return `<tr class="${levelClass} log-row${isMulti ? " multi" : ""}" onclick="toggleRow(this)">
-      <td class="col-ts" title="${log.ts}">${ts}</td>
-      <td class="col-host">${log.host}</td>
-      <td class="col-app">${log.app}</td>
-      <td class="col-level"><span class="level-tag ${levelClass}">${log.level}</span>${badge}</td>
-      <td class="col-msg">
-        <pre class="msg-short">${preview}${expandHint}</pre>
-        <pre class="msg-full" style="display:none">${full}</pre>
-      </td>
-    </tr>`;
-          })
-          .join("");
+        logs.forEach((log) => {
+          const levelClass = `level-${log.level}`;
+          const ts = formatTime(log.ts);
+          const lineCount = log.message.split("\n").length;
+          const preview = escapeHtml(firstLine(log.message)).substring(0, 250);
+          const full = escapeHtml(log.message);
+          const isMulti = lineCount > 1;
+          const badge = isMulti
+            ? ` <span class="lines-badge">${lineCount} lines</span>`
+            : "";
+          const expandHint = isMulti
+            ? ' <span class="expand-hint">▶ expand</span>'
+            : "";
+
+          const tr = document.createElement("tr");
+          tr.className = `${levelClass} log-row${isMulti ? " multi" : ""}`;
+          tr.onclick = function () {
+            toggleRow(this);
+          };
+          tr.innerHTML = `
+            <td class="col-ts" title="${log.ts}">${ts}</td>
+            <td class="col-host">${log.host}</td>
+            <td class="col-app">${log.app}</td>
+            <td class="col-level"><span class="level-tag ${levelClass}">${log.level}</span>${badge}</td>
+            <td class="col-msg">
+              <pre class="msg-short">${preview}${expandHint}</pre>
+              <pre class="msg-full" style="display:none">${full}</pre>
+            </td>`;
+          fragment.appendChild(tr);
+        });
+
+        tbody.appendChild(fragment);
+      }
+
+      function renderLogs(logs) {
+        document.getElementById("log-body").innerHTML = "";
+        appendLogs(logs);
       }
 
       function toggleRow(tr) {
@@ -235,16 +274,6 @@
           .replace(/>/g, "&gt;");
       }
 
-      function nextPage() {
-        offset += LIMIT;
-        fetchLogs();
-      }
-
-      function prevPage() {
-        offset = Math.max(0, offset - LIMIT);
-        fetchLogs();
-      }
-
       function toggleLive() {
         const btn = document.getElementById("live-btn");
         if (liveInterval) {
@@ -254,8 +283,7 @@
           btn.classList.remove("active");
         } else {
           liveInterval = setInterval(() => {
-            offset = 0;
-            fetchLogs();
+            resetAndFetch();
             fetchStats();
           }, 3000);
           btn.textContent = "⏸ Live";

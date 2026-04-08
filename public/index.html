@@ -83,7 +83,7 @@
 
     <script>
       const BATCH = 30;
-      let offset = 0;
+      let cursor = null; // ID cursor for pagination
       let loading = false;
       let hasMore = true;
       let liveInterval = null;
@@ -101,7 +101,7 @@
       observer.observe(sentinel);
 
       function resetAndFetch() {
-        offset = 0;
+        cursor = null;
         hasMore = true;
         document.getElementById("log-body").innerHTML = "";
         document.getElementById("end-indicator").style.display = "none";
@@ -163,7 +163,7 @@
 
         const params = new URLSearchParams();
         params.set("limit", BATCH);
-        params.set("offset", offset);
+        if (cursor) params.set("before_id", cursor);
         if (host) params.set("host", host);
         if (app) params.set("app", app);
         if (level) params.set("level", level);
@@ -175,10 +175,11 @@
           const data = await res.json();
 
           appendLogs(data.logs);
-          offset += BATCH;
+
+          if (data.nextCursor) cursor = data.nextCursor;
 
           if (data.logs.length < BATCH || data.hasMore === false) {
-            hasMore = data.hasMore !== true;
+            hasMore = false;
             document.getElementById("end-indicator").style.display = "block";
           }
         } catch (e) {

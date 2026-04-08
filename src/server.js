@@ -242,8 +242,8 @@ app.get("/api/logs", async (request, reply) => {
   if (!checkBasicAuth(request, reply)) return;
 
   const {
-    limit = "100",
-    offset = "0",
+    limit = "30",
+    before_id,
     host,
     app: appFilter,
     level,
@@ -253,11 +253,14 @@ app.get("/api/logs", async (request, reply) => {
   } = request.query;
 
   const wantedLimit = Number(limit);
-  const startOffset = Number(offset);
 
   let whereSql = " WHERE 1=1";
   const whereParams = [];
 
+  if (before_id) {
+    whereSql += " AND id < ?";
+    whereParams.push(Number(before_id));
+  }
   if (host) {
     whereSql += " AND host = ?";
     whereParams.push(host);
@@ -283,38 +286,77 @@ app.get("/api/logs", async (request, reply) => {
     whereParams.push(to);
   }
 
-  // Fetch in chunks until we have enough grouped results
-  const CHUNK = wantedLimit * 10;
-  let rawOffset = startOffset * 5; // approximate raw offset
+  // Fetch raw rows in chunks, group, collect until we have enough
   let allGrouped = [];
   let exhausted = false;
+  let lastRawId = before_id ? Number(before_id) : null;
   let attempts = 0;
+  const CHUNK = wantedLimit * 15;
 
-  while (allGrouped.length < wantedLimit && !exhausted && attempts < 5) {
-    const sql = `SELECT id, ts, host, app, level, message FROM logs${whereSql} ORDER BY ts DESC LIMIT ? OFFSET ?`;
-    const rows = db.prepare(sql).all(...whereParams, CHUNK, rawOffset);
+  while (allGrouped.length < wantedLimit && !exhausted && attempts < 10) {
+    let sql;
+    const params = [];
+
+    if (lastRawId) {
+      sql = `SELECT id, ts, host, app, level, message FROM logs WHERE id < ?`;
+      params.push(lastRawId);
+    } else {
+      sql = `SELECT id, ts, host, app, level, message FROM logs WHERE 1=1`;
+    }
+
+    // Add filters (skip before_id since handled above)
+    if (host) {
+      sql += " AND host = ?";
+      params.push(host);
+    }
+    if (appFilter) {
+      sql += " AND app = ?";
+      params.push(appFilter);
+    }
+    if (level) {
+      sql += " AND level = ?";
+      params.push(level);
+    }
+    if (search) {
+      sql += " AND message LIKE ?";
+      params.push(`%${search}%`);
+    }
+    if (from) {
+      sql += " AND ts >= ?";
+      params.push(from);
+    }
+    if (to) {
+      sql += " AND ts <= ?";
+      params.push(to);
+    }
+
+    sql += " ORDER BY id DESC LIMIT ?";
+    params.push(CHUNK);
+
+    const rows = db.prepare(sql).all(...params);
 
     if (rows.length === 0) {
       exhausted = true;
       break;
     }
 
+    lastRawId = rows[rows.length - 1].id;
     const grouped = groupLogs(rows);
     allGrouped.push(...grouped);
-    rawOffset += rows.length;
     attempts++;
 
-    if (rows.length < CHUNK) {
-      exhausted = true;
-    }
+    if (rows.length < CHUNK) exhausted = true;
   }
 
   const trimmed = allGrouped.slice(0, wantedLimit);
+  // Cursor for next page = lowest raw ID we consumed
+  const nextCursor = lastRawId;
 
   return {
     logs: trimmed,
     count: trimmed.length,
     hasMore: !exhausted || allGrouped.length > wantedLimit,
+    nextCursor,
   };
 });
 

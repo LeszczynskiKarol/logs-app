@@ -115,9 +115,9 @@ function extractHostShort(hostname) {
   if (hostname.includes("172-31-36-197")) return "Stojan (Stockholm)";
   if (hostname.includes("172-31-37-15")) return "Scraper (Stockholm)";
   if (hostname.includes("172-31-21-124"))
-    return "Matura+Inter+Copy (Frankfurt)";
+    return "Matura+Inter+Copy24 (Frankfurt)";
   if (hostname.includes("172-31-17-228"))
-    return "SmartCopy+Edu+SEO (Frankfurt)";
+    return "SmartCopy+Edu+SEO-panel (Frankfurt)";
   return hostname.split(".")[0];
 }
 

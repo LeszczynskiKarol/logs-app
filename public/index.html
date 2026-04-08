@@ -177,8 +177,8 @@
           appendLogs(data.logs);
           offset += BATCH;
 
-          if (data.logs.length < BATCH) {
-            hasMore = false;
+          if (data.logs.length < BATCH || data.hasMore === false) {
+            hasMore = data.hasMore !== true;
             document.getElementById("end-indicator").style.display = "block";
           }
         } catch (e) {

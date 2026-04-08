@@ -251,49 +251,70 @@ app.get("/api/logs", async (request, reply) => {
     to,
   } = request.query;
 
-  // Fetch more rows than requested so grouping still yields enough results.
-  // After grouping N raw rows might collapse to far fewer entries.
-  const rawLimit = Number(limit) * 5;
-  const rawOffset = Number(offset);
+  const wantedLimit = Number(limit);
+  const startOffset = Number(offset);
 
-  let sql = "SELECT id, ts, host, app, level, message FROM logs WHERE 1=1";
-  const params = [];
+  let whereSql = " WHERE 1=1";
+  const whereParams = [];
 
   if (host) {
-    sql += " AND host = ?";
-    params.push(host);
+    whereSql += " AND host = ?";
+    whereParams.push(host);
   }
   if (appFilter) {
-    sql += " AND app = ?";
-    params.push(appFilter);
+    whereSql += " AND app = ?";
+    whereParams.push(appFilter);
   }
   if (level) {
-    sql += " AND level = ?";
-    params.push(level);
+    whereSql += " AND level = ?";
+    whereParams.push(level);
   }
   if (search) {
-    sql += " AND message LIKE ?";
-    params.push(`%${search}%`);
+    whereSql += " AND message LIKE ?";
+    whereParams.push(`%${search}%`);
   }
   if (from) {
-    sql += " AND ts >= ?";
-    params.push(from);
+    whereSql += " AND ts >= ?";
+    whereParams.push(from);
   }
   if (to) {
-    sql += " AND ts <= ?";
-    params.push(to);
+    whereSql += " AND ts <= ?";
+    whereParams.push(to);
   }
 
-  sql += " ORDER BY ts DESC LIMIT ? OFFSET ?";
-  params.push(rawLimit, rawOffset);
+  // Fetch in chunks until we have enough grouped results
+  const CHUNK = wantedLimit * 10;
+  let rawOffset = startOffset * 5; // approximate raw offset
+  let allGrouped = [];
+  let exhausted = false;
+  let attempts = 0;
 
-  const rows = db.prepare(sql).all(...params);
+  while (allGrouped.length < wantedLimit && !exhausted && attempts < 5) {
+    const sql = `SELECT id, ts, host, app, level, message FROM logs${whereSql} ORDER BY ts DESC LIMIT ? OFFSET ?`;
+    const rows = db.prepare(sql).all(...whereParams, CHUNK, rawOffset);
 
-  // Group multi-line logs, then trim to requested limit
-  const grouped = groupLogs(rows);
-  const trimmed = grouped.slice(0, Number(limit));
+    if (rows.length === 0) {
+      exhausted = true;
+      break;
+    }
 
-  return { logs: trimmed, count: trimmed.length };
+    const grouped = groupLogs(rows);
+    allGrouped.push(...grouped);
+    rawOffset += rows.length;
+    attempts++;
+
+    if (rows.length < CHUNK) {
+      exhausted = true;
+    }
+  }
+
+  const trimmed = allGrouped.slice(0, wantedLimit);
+
+  return {
+    logs: trimmed,
+    count: trimmed.length,
+    hasMore: !exhausted || allGrouped.length > wantedLimit,
+  };
 });
 
 app.get("/api/stats", async (request, reply) => {

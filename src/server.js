@@ -78,6 +78,12 @@ function detectLevel(message) {
 
 function detectApp(file, host) {
   if (!file) return host || "unknown";
+  // Matury-online (custom log path)
+  if (file.includes("matury-online.pl")) {
+    if (file.includes("backend")) return "matury-backend";
+    if (file.includes("frontend")) return "matury-frontend";
+    return "matury-online";
+  }
   // Stojan instance
   if (file.includes("stojan-backend")) return "stojan-backend";
   if (file.includes("stojan-frontend")) return "stojan-frontend";

@@ -89,6 +89,8 @@ function detectApp(file, host) {
   if (file.includes("smart-backend") || file.includes("smart-copy"))
     return "smart-copy";
   if (file.includes("smart-edu")) return "smart-edu";
+  if (file.includes("matury-backend")) return "matury-backend";
+  if (file.includes("matury-frontend")) return "matury-frontend";
   // Frankfurt-1: maturapolski, interpunkcja, copywriting24
   if (file.includes("maturapolski") || file.includes("matura"))
     return "maturapolski";

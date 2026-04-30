@@ -77,6 +77,8 @@ function detectLevel(message) {
 }
 
 function detectApp(file, host) {
+  // Voice assistant (Frankfurt-2)
+  if (file.includes("voice-assistant")) return "voice-assistant";
   if (!file) return host || "unknown";
   // Matury-online (custom log path)
   if (file.includes("matury-online.pl")) {
@@ -123,9 +125,9 @@ function extractHostShort(hostname) {
   if (hostname.includes("172-31-36-197")) return "Stojan (Stockholm)";
   if (hostname.includes("172-31-37-15")) return "Scraper (Stockholm)";
   if (hostname.includes("172-31-21-124"))
-    return "Matura+Inter+Copy24 (Frankfurt)";
+    return "Matury+Inter+Copy24 (Frankfurt)";
   if (hostname.includes("172-31-17-228"))
-    return "SmartCopy+Edu+SEO-panel (Frankfurt)";
+    return "SmartCopy+Edu+SEO+Voice (Frankfurt)";
   return hostname.split(".")[0];
 }
 
